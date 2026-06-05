@@ -21,6 +21,11 @@
         "backgroundColor": "#6366F1"
       },
       "package": "com.docwallet.app"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e5260851-d32e-4eac-8615-031b8434336f"
+      }
     }
   }
 }
