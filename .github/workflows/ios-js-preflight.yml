@@ -1,0 +1,41 @@
+name: DocWallet iOS JavaScript preflight (unsigned)
+on:
+  pull_request:
+    paths:
+      - 'App.*'
+      - 'src/**'
+      - 'assets/**'
+      - 'package.json'
+      - 'app.json'
+      - '.github/workflows/ios-js-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docwallet-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install legacy Expo SDK dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Validate Expo project configuration
+        run: npx expo config --type public
+      - name: Export iOS JavaScript bundle
+        run: npx expo export --platform ios --output-dir dist-ios-preflight
+      - name: Upload unsigned iOS bundle
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docwallet-ios-js-bundle
+          path: dist-ios-preflight/
+          retention-days: 7
