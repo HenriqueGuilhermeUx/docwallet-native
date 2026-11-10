@@ -1,0 +1,62 @@
+name: DocWallet native iOS simulator preflight (unsigned)
+
+on:
+  pull_request:
+    paths:
+      - 'App.*'
+      - 'src/**'
+      - 'assets/**'
+      - 'app.json'
+      - 'package.json'
+      - '.github/workflows/ios-native-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docwallet-native-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Expo 51 dependencies without changing lockfile
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Generate iOS project
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+      - name: Compile unsigned iOS simulator build
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKSPACE="$(find ios -maxdepth 1 -name '*.xcworkspace' -type d | head -1)"
+          test -n "$WORKSPACE"
+          SCHEME="$(basename "$WORKSPACE" .xcworkspace)"
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/docwallet-derived" build 2>&1 | tee ios-native-build.log
+      - name: Archive diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docwallet-ios-native-log
+          path: ios-native-build.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Archive unsigned app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docwallet-ios-simulator-app
+          path: ${{ runner.temp }}/docwallet-derived/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 7
